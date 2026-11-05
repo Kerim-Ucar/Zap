@@ -26,6 +26,7 @@ cd your-project
 ## Usage
 ```bash
 ./zap.sh #show N recent projects (Default: 10), edit in config
+./zap.sh -h #show help
 ```
 
 ## Roadmap
