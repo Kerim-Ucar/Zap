@@ -116,7 +116,7 @@ function validate_variables_e() {
 # Pipe into sed to strip the $Project_Home env
 # -f formats into Strings, with the date attached
 # sort -n is for numerical sorting, -nr is numerical in reverse
-# TODO: make this return a list
+# DOES NOT RETURN A LIST. ONE STRING WHICH IS THEN PARSED OUTSIDE <-------------- !!!!
 function look_up_recent_files() {
   if [[ "$3" == "Oldest" ]]; then
     find "$1" -mindepth 1 -maxdepth 1 -type d \
@@ -130,15 +130,41 @@ function look_up_recent_files() {
   fi
 }
 
+# Takes a full path to a directory !!!
+# Takes $1, a folder to look for
+# Takes $2, a workspace IDE folder to look for.
+# returns a IDE folder
 function look_for_ide_e() {
-  # TODO: $1 should be the folder, and it'll just do find for .IDEA or .VSCODE, and if not just exit 1, hardcode values later
-  echo
+  # TODO: Complete this
+  exit 0
+}
+
+# takes no params
+# Chunked away into a function to use global var
+# returns selected file
+function user_select() {
+  FILE=""
+
+  select OPTION in "${VALUES_LIST[@]}"; do
+    [[ -n "$OPTION" ]] || {
+      echo "Invalid selection."
+      continue;
+    }
+    # The slashes in $PROJECT_HOME caused the other slashes to turn into escape chars, and the whole thing
+    # crumbled down. This is just regex on the option to remove it down to the file
+    # Then it adds it to the end of $PROJECT_HOME
+    # without it it would be like
+    NAME="${OPTION#* }"
+    FILE="$PROJECT_HOME/$NAME"
+    break;
+  done
+
+  echo "$FILE"
 }
 
 # Validate source (Uses "$MAX_PROJECTS" instead of "$COUNT" so -n flag won't hide the fact that their .config values are wrong)
 validate_variables_e
 
-# TODO: Turn this into a list somehow
 VALUES=""
 
 # Handle flags
@@ -159,6 +185,10 @@ else
 fi
 
 echo "Searching in: $PROJECT_HOME"
-echo "$VALUES"
+# splits String into a list
+VALUES_LIST=("${(@f)VALUES}")
+
+FILE=$(user_select)
+look_for_ide_e "$FILE" ".idea"
 
 exit 0
