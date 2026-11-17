@@ -14,9 +14,17 @@ source "$ZAP_CONFIG_FILE" || {
 # -h help flag, this is pretty cool, didn't know you could do multi lines like this
 HELP=$(cat << 'EOF'
 Usage: zap [-v] [-s] [-d YYYY-MM-DD]
-           [n Count] [-h] [-r]
+           [-n Count] [-h] [-r]
 
 Zsh script for mac that will show most recent projects and will auto open selected project in IDE
+
+Supported IDE:
+    -Visual Studio
+    -Intellij
+    -CLion
+    -PyCharm
+    -Webstorm
+    -Rider
 
 All Flags:
     -v Show the version of zap
@@ -134,8 +142,95 @@ function look_up_recent_files() {
 # Takes $1, a folder to look for
 # Takes $2, a workspace IDE folder to look for.
 # returns a IDE folder
+# dont check if folder is empty in here
 function look_for_ide_e() {
-  # TODO: Complete this
+  WORKSPACE_FOLDER=$(find "$1" -type d -name "$2")
+
+  if [ ! -d "$WORKSPACE_FOLDER" ]; then
+      echo "zap: $WORKSPACE_FOLDER: IDE workspace is not directory?"
+      exit 1
+  fi
+
+  echo "$WORKSPACE_FOLDER"
+}
+
+# Takes $1, a .idea folder
+# Takes $2, the original folder
+# returns the ide of the project
+# does not return the launcher name
+function get_IDE_for_intellij() {
+  # Check misc.xml
+  MISC_XML=$(find "$1" -type f -name "misc.xml")
+
+  # java, c/c++, python
+  if [[ $(grep "project-jdk-name" "$MISC_XML") == *"JavaSDK"* ]]; then
+    echo "INTELLIJ"
+    return;
+  elif [[ $(grep "project-jdk-name" "$MISC_XML") == *"Python SDK"* ]]; then
+    echo "PYCHARM"
+    return;
+  elif [[ $(cat "$MISC_XML") == *"CMakeWorkspace"* ]]; then
+    echo "CLION"
+    return;
+  fi
+
+  # Check for .IML outside and inside for webstorm, C#, Rust
+  FOLD=$(basename "$2")
+  IML_FOLDER=$(find "$1" -type f -name "$FOLD.iml")
+  if [ ! -z "$IML_FOLDER" ]; then
+    IML_FOLDER=$(find "$2" -type f -name "$FOLD.iml")
+  fi
+
+  if [[ $(cat "$IML_FOLDER") == *"WEB_MODULE"* ]]; then
+    echo "WEBSTORM"
+    return
+  elif [[ $(cat "$IML_FOLDER") == *"RIDER_MODULE"* ]]; then
+    echo "RIDER"
+    return
+  fi
+
+}
+
+# Takes $1, a folder
+# Takes $2, the original folder
+# wraps check_ide_folders_e
+# checks presets like .idea, .vscode
+# returns the name of the launcher on macos
+# Isn't in quotes so be careful
+# does not have any conditions that can exit, but look_for_ide_e can exit so this can also exit too
+function check_preset_ide_folders_e() {
+  if [[ $(basename "$1") == .vscode ]]; then
+      echo "Visual Studio Code"
+      return
+  fi
+
+  IDE_TYPE=$(get_IDE_for_intellij "$1" "$2")
+  printf 'IDE_TYPE=<%s>\n' "$IDE_TYPE" >&2
+
+  if [[ "$IDE_TYPE" == "INTELLIJ" ]]; then
+    echo "IntelliJ IDEA"
+    return
+  elif [[ "$IDE_TYPE" == "CLION" ]]; then
+    echo "CLion"
+    return
+  elif [[ "$IDE_TYPE" == "PYCHARM" ]]; then
+    echo "PyCharm"
+    return
+  elif [[ "$IDE_TYPE" == "WEBSTORM" ]]; then
+    echo "WebStorm"
+    return
+  elif [[ "$IDE_TYPE" == "RIDER" ]]; then
+    echo "Rider"
+    return
+  fi
+
+  echo "zap: $1: Unsupported IDE or Failed IDE Extraction"
+}
+
+# Takes $1, a folder
+# Takes $2, the original folder
+function openIDE_e() {
+  # TODO: find out how to open project
   exit 0
 }
 
@@ -153,7 +248,6 @@ function user_select() {
     # The slashes in $PROJECT_HOME caused the other slashes to turn into escape chars, and the whole thing
     # crumbled down. This is just regex on the option to remove it down to the file
     # Then it adds it to the end of $PROJECT_HOME
-    # without it it would be like
     NAME="${OPTION#* }"
     FILE="$PROJECT_HOME/$NAME"
     break;
@@ -186,9 +280,10 @@ fi
 
 echo "Searching in: $PROJECT_HOME"
 # splits String into a list
+# this works
 VALUES_LIST=("${(@f)VALUES}")
 
 FILE=$(user_select)
-look_for_ide_e "$FILE" ".idea"
-
+IDE_FOLDER=$(look_for_ide_e "$FILE" ".idea")
+openIDE_e "$IDE_FOLDER" "$FILE"
 exit 0
